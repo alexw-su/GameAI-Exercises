@@ -24,3 +24,4 @@ GHOST = 3
 SEEK = 1
 FLEE = 2
 WANDER = 3
+ELSE = 4

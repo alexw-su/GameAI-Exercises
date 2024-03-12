@@ -38,14 +38,14 @@ class GameController(object):
                 exit()
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_s:
-                    # implement and delete the "continue" command
-                    continue
+                    self.ghost.myState = SEEK
+                    self.ghost.FSMstateChecker
                 if event.key == pygame.K_f:
-                    # implement and delete the "continue" command
-                    continue
+                    self.ghost.myState = FLEE
+                    self.ghost.FSMstateChecker
                 if event.key == pygame.K_w:
-                    # implement and delete the "continue" command
-                    continue
+                    self.ghost.myState = WANDER
+                    self.ghost.FSMstateChecker
 
     def render(self):
         self.screen.blit(self.background, (0,0))
