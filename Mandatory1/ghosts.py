@@ -170,3 +170,10 @@ class GhostGroup(object):
         for ghost in self:
             ghost.render(screen)
 
+    def getGhosts(self):
+        ghosts = []
+        for ghost in self:
+            ghosts.append(ghost)
+        
+        return ghosts
+

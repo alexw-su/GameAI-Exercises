@@ -4,7 +4,7 @@ from constants import *
 from pacman import Pacman
 from nodes import NodeGroup
 from pellets import PelletGroup
-from ghosts import Ghost, GhostGroup
+from ghosts import GhostGroup
 from fruit import Fruit
 from pauser import Pause
 from text import TextGroup
@@ -53,9 +53,9 @@ class GameController(object):
         self.nodes = NodeGroup(self.mazedata.obj.name+".txt")
         self.mazedata.obj.setPortalPairs(self.nodes)
         self.mazedata.obj.connectHomeNodes(self.nodes)
-        self.pacman = Pacman(self.nodes.getStartTempNode(), self.nodes)
-        self.ghost = Ghost(self.nodes.getStartTempNode(), self.nodes, self.pacman)
         self.pellets = PelletGroup(self.mazedata.obj.name+".txt")
+        self.pacman = Pacman(self.nodes.getNodeFromTiles(*self.mazedata.obj.pacmanStart), self.nodes, self.pellets.pelletList)
+        self.ghosts = GhostGroup(self.nodes.getStartTempNode(), self.pacman)
 
         self.ghosts.pinky.setStartNode(self.nodes.getNodeFromTiles(*self.mazedata.obj.addOffset(2, 3)))
         self.ghosts.inky.setStartNode(self.nodes.getNodeFromTiles(*self.mazedata.obj.addOffset(0, 3)))
@@ -68,6 +68,7 @@ class GameController(object):
         self.ghosts.inky.startNode.denyAccess(RIGHT, self.ghosts.inky)
         self.ghosts.clyde.startNode.denyAccess(LEFT, self.ghosts.clyde)
         self.mazedata.obj.denyGhostsAccess(self.ghosts, self.nodes)
+        self.pacman.setGhosts(self.ghosts.getGhosts())
 
     def startGame_old(self):      
         self.mazedata.loadMaze(self.level)#######
