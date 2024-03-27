@@ -34,7 +34,7 @@ class NodeGroup(object):
     def __init__(self, level):
         self.level = level
         self.nodesLUT = {}
-        self.nodeSymbols = ['+', 'P', 'n', '.']
+        self.nodeSymbols = ['+', 'P', 'n']
         self.pathSymbols = ['.', '-', '|', 'p']
         data = self.readMazeFile(level)
         self.createNodeTable(data)
@@ -211,6 +211,7 @@ class NodeGroup(object):
             costs_dict[node] = temp_list
         # print(costs_dict)
         return costs_dict
+    
     def getNearestNode(self, position):
             min_distance = float('inf')
             nearest_node = None

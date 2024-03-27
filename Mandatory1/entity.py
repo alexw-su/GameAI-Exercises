@@ -43,11 +43,10 @@ class Entity(object):
             self.setPosition()
           
     def validDirection(self, direction):
-        if direction is not None:
-            if direction is not STOP:
-                if self.name in self.node.access[direction]:
-                    if self.node.neighbors[direction] is not None:
-                        return True
+        if direction is not STOP:
+            if self.name in self.node.access[direction]:
+                if self.node.neighbors[direction] is not None:
+                    return True
         return False
 
     def getNewTarget(self, direction):
@@ -84,7 +83,6 @@ class Entity(object):
                     directions.append(key)
         if len(directions) == 0:
             directions.append(self.direction * -1)
-        print(directions)
         return directions
 
     def randomDirection(self, directions):
@@ -96,14 +94,6 @@ class Entity(object):
             vec = self.node.position  + self.directions[direction]*TILEWIDTH - self.goal
             distances.append(vec.magnitudeSquared())
         index = distances.index(min(distances))
-        return directions[index]
-    
-    def fleeDirection(self, directions):
-        distances = []
-        for direction in directions:
-            vec = self.node.position  + self.directions[direction]*TILEWIDTH - self.goal
-            distances.append(vec.magnitudeSquared())
-        index = distances.index(max(distances))
         return directions[index]
 
     def setStartNode(self, node):
