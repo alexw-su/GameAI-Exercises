@@ -26,6 +26,7 @@ class Pacman(Entity):
         self.myState = SEEK_PELLET
         self.nodes = nodes
         self.pellets = []
+        self.powerPellets = []
         self.eatenPellets = []
         self.currentPellet = None
         self.ghosts = []
@@ -34,8 +35,7 @@ class Pacman(Entity):
 
         self.turningAllowed = False
         self.safeDistance = 7000    # Decides when Pacman should be aware of the ghosts
-        self.nearbyDistance = 10000 # Decides when Pacman should deem a ghost nearby.
-        self.huntingTime = 5        # Decides how long Pacman should seek ghost before stopping
+        self.nearbyDistance = 12000 # Decides when Pacman should deem a ghost nearby.
 
     def reset(self):
         Entity.reset(self)
@@ -55,6 +55,10 @@ class Pacman(Entity):
     def setPellets(self, pellets):
         self.pellets = pellets
 
+    def setPowerPellets(self, pellets):
+        print(pellets)
+        self.powerPellets = pellets
+
     def getValidKey(self):
         key_pressed = pygame.key.get_pressed()
         if key_pressed[K_UP]:
@@ -66,6 +70,19 @@ class Pacman(Entity):
         if key_pressed[K_RIGHT]:
             return RIGHT
         return STOP  
+    
+    def validDirections(self):
+        directions = []
+        for key in [UP, DOWN, LEFT, RIGHT]:
+            if self.validDirection(key):
+                if key == self.direction * -1 and self.turningAllowed:
+                    directions.append(key)
+                elif key != self.direction * -1:
+                    directions.append(key)
+
+        if len(directions) == 0 : 
+            directions.append(self.direction * -1)
+        return directions
 
     def eatPellets(self, pelletList):
         for pellet in pelletList:
@@ -90,14 +107,7 @@ class Pacman(Entity):
     
     #############
     # FOR UPDATE AND SEARCH
-    
     def update(self, dt):
-        # Update Timer
-        if any(ghost.mode.current == FREIGHT for ghost in self.ghosts):
-            self.timer += dt
-        else:
-            self.timer = 0
-
         # Update Sprite
         self.sprites.update(dt)
 
@@ -132,15 +142,18 @@ class Pacman(Entity):
     
     # Updates state
     def updateState(self):
+        distance = self.safeDistance + 1
         # Get the distance between Pacman and the Nearest Ghost that is not spawning
         self.nearestGhost()
-        distance = (self.currentGhost.position - self.position).magnitudeSquared()
+        if self.currentGhost != None:
+            distance = (self.currentGhost.position - self.position).magnitudeSquared()
         
         # If Ghost further away than the safe distance from Pacman, then seek pellets 
-        if distance > self.safeDistance or all(ghost.mode.current == SPAWN for ghost in self.ghosts):
+        if all(ghost.mode.current == SPAWN for ghost in self.ghosts) or distance > self.safeDistance:
             self.myState = SEEK_PELLET
             self.turningAllowed = False
-            self.seekPellet()
+            self.goal = self.getNearestPellet()
+            self.directionMethod = self.pelletDirection
         else:
             # Else, begin fleeing from the nearby ghosts.
             self.myState = FLEE
@@ -148,7 +161,7 @@ class Pacman(Entity):
             self.directionMethod = self.fleeDirection
         
         # If ghost is close and in freight, then seek it.
-        if self.currentGhost.mode.current == FREIGHT and distance <= self.nearbyDistance and 0 < self.timer < self.huntingTime:
+        if self.currentGhost.mode.current == FREIGHT and distance <= self.nearbyDistance:
             self.myState = SEEK_GHOST
             self.turningAllowed = True
             self.goal = self.currentGhost
@@ -174,7 +187,25 @@ class Pacman(Entity):
         
         # Finally set the nearest ghost as the currently targeted one.
         self.currentGhost = nearestGhost
-    
+
+    def getNearestGhostToNode(self, node):
+        shortestDistance = float('inf')
+        nearestGhost = None
+
+        for ghost in self.ghosts:
+            # If ghost is not in the middle of spawning
+            if ghost.mode.current != SPAWN:
+                # Get the distance between this ghost and Pacman
+                distance = (ghost.position - node.position).magnitudeSquared()
+                
+                # If the distance is shorter than the currently known distance
+                # then set this ghost as the nearest at the moment
+                if(distance < shortestDistance):
+                    shortestDistance = distance
+                    nearestGhost = ghost
+        
+        # Finally set the nearest ghost as the currently targeted one.
+        return nearestGhost
     
     def getNearbyGhost(self):
         nearbyGhost = []
@@ -192,45 +223,56 @@ class Pacman(Entity):
         
         # Finally set the nearest ghost as the currently targeted one.
         return nearbyGhost
-        
-
-    # Seeks the nearest pellet
-    def seekPellet(self):
+    
+    def getNearestPowerPellet(self):
         shortestDistance = float('inf')
         nearestPellet = None
-        self.myState = SEEK_PELLET
         
-        for pellet in self.pellets:
-            # Measure the Distance between this node and Pacman
+        for pellet in self.powerPellets:
+            # Measure the Distance between this pellet and Pacman
             distance = (pellet.position - self.position).magnitudeSquared()
             
-            # If this node of a pellet is closer than any other distances known
+            # If this pellet is closer than any other distances known
             # then choose this as the currently nearest pellet.
             if(distance < shortestDistance):
                 shortestDistance = distance
                 nearestPellet = pellet
         
         # Set new target goal as the pellet
-        self.goal = nearestPellet
-        self.currentPellet = nearestPellet
+        return nearestPellet
 
-        # Use A* to seek this pellet
-        self.directionMethod = self.goalDirectionDij
 
+    # Seeks the nearest pellet
+    def getNearestPellet(self):
+        shortestDistance = float('inf')
+        nearestPellet = None
+        
+        for pellet in self.pellets:
+            # Measure the Distance between this pellet and Pacman
+            distance = (pellet.position - self.position).magnitudeSquared()
+
+            # If this pellet is closer than any other distances known
+            # then choose this as the currently nearest pellet.
+            if distance < shortestDistance :
+                shortestDistance = distance
+                nearestPellet = pellet
+
+        return nearestPellet
+            
 
     #############
     # Executes Dijkstra from Ghost's previous node as start
     # to pacman's target node as target.
-    def getDijkstraPath(self, directions):
+    def getDijkstraPath(self, direction):
         goal = self.goal
-        goalNode = (goal.position.x, goal.position.y)
-        currentNode = self.target
+        goal = (goal.position.x, goal.position.y)
+        currentNode = self.node
         currentNode = self.nodes.getNodeFromPixels(currentNode.position.x, currentNode.position.y)
 
         # previous_nodes, shortest_path = dijkstra(self.nodes, currentNode)
         previous_nodes, shortest_path = dijkstra_or_a_star(self.nodes, currentNode, a_star=True)
         path = []
-        node = goalNode
+        node = goal
         while node != currentNode:
             path.append(node)
             if node in previous_nodes:
@@ -246,18 +288,18 @@ class Pacman(Entity):
     # returned path
     def goalDirectionDij(self, directions):
         path = self.getDijkstraPath(directions)
-        currentTarget = self.target
-        currentTarget = self.nodes.getVectorFromLUTNode(currentTarget)
-        path.append(currentTarget)
+        currentNode = self.node
+        currentNode = self.nodes.getPixelsFromNode(currentNode)
+        path.append(currentNode)
         nextNode = path[1]
 
-        if currentTarget[0] > nextNode[0] and 2 in directions : #left
+        if currentNode[0] > nextNode[0] and 2 in directions : #left
             return 2
-        if currentTarget[0] < nextNode[0] and -2 in directions : #right
+        if currentNode[0] < nextNode[0] and -2 in directions : #right
             return -2
-        if currentTarget[1] > nextNode[1] and 1 in directions : #up
+        if currentNode[1] > nextNode[1] and 1 in directions : #up
             return 1
-        if currentTarget[1] < nextNode[1] and -1 in directions : #down
+        if currentNode[1] < nextNode[1] and -1 in directions : #down
             return -1
         else:
             if -1 * self.direction in directions:
@@ -265,29 +307,105 @@ class Pacman(Entity):
             else:
                 return choice(directions)
         # up 1, down -1, left 2, right -2
+    
+    def pelletDirection(self, directions):
+        
+        # Setup a new direction list
+        newDirections = []
+
+        for direction in directions:
+            distance = 0
+
+            # Get the node of the direction
+            directionNode = self.node.neighbors[direction]
+
+            # Measure the distance between this node, and the nearest ghost to it
+            distance += (self.getNearestGhostToNode(directionNode).position - directionNode.position).magnitudeSquared()
+            
+            # If the ghost is within the safe distance of this node, then avoid the direction
+            if distance > self.safeDistance:
+                newDirections.append(direction)
+        
+        # if there are no directions that are safe, then go back.
+        if len(newDirections) == 0:
+            newDirections.append(self.direction * -1)
+
+        # Begin A* with the newly set directions
+        return self.goalDirectionDij(newDirections)
 
     def fleeDirection(self, directions):
-        vec = 0
-        distances = []
-        for direction in directions:
-            for ghost in self.getNearbyGhost() :
-                vec += (self.position + self.directions[direction]*TILEWIDTH - ghost.position).magnitudeSquared()
-            distances.append(vec)
-            vec = 0
-        index = distances.index(max(distances))
-        print("Distances :"+str(distances))
-        print("Choice :"+str(directions[index]))
-        return directions[index]
-    
-    def validDirections(self):
-        directions = []
-        for key in [UP, DOWN, LEFT, RIGHT]:
-            if self.validDirection(key):
-                if key == self.direction * -1 and self.turningAllowed:
-                    directions.append(key)
-                elif key != self.direction * -1:
-                    directions.append(key)
+        
+        # Setting up.
+        directionsToGhosts = []
+        something = []
 
-        if len(directions) == 0 : 
-            directions.append(self.direction * -1)
-        return directions
+        ghosts = self.getNearbyGhost()
+        powerPellet = self.getNearestPowerPellet()
+        
+        for ghost in ghosts:
+            distance = 0
+            if ghost.mode.current != FREIGHT:
+                self.goal = ghost
+                
+                # Get the direction that leads to the ghost
+                direction = self.goalDirectionDij(directions)
+
+                # Get the node of the direction
+                directionNode = self.node.neighbors[direction]
+                
+                # Get the distance from this node to all nearby ghosts
+                for ghost in ghosts:
+                    distance += (ghost.position - directionNode.position).magnitudeSquared()
+
+                # Add to a list.
+                directionsToGhosts.append((direction, distance))
+        
+        # Get the direction and distance of nearest power pellet
+        self.goal = powerPellet
+        pelletDirection = self.goalDirectionDij(directions)      
+        pelletDistance = (powerPellet.position - self.position).magnitudeSquared()              
+
+        # If there is a direction that does not lead to any of the nearby ghost
+        # then go with that direction
+        for direction in directions:
+            badDir = False
+
+            for pair in directionsToGhosts:
+                if direction == pair[0]:
+                    badDir = True
+        
+            if badDir == False:
+                return direction
+        
+
+        # If all directions lead to ghosts
+        # then calculate direction with least ghost
+        for direction in directions:
+            count = 0
+            cost = 0
+
+            for pair in directionsToGhosts:
+                if pair[0] == direction:
+                    count += 1
+                    cost += pair[1]
+            
+            # Additionally, if there is a power pellet in that direction
+            # then this direction is more favored
+            if pelletDirection == direction:
+                count -= 1
+                cost -= pelletDistance * 2
+
+            something.append((count, cost))
+        
+        # Finally choose the best direction
+        lowestCount = 5
+        lowestCost = 0
+        bestDir = 0
+        for pair in something:
+            if(pair[0] <= lowestCount):
+                if pair[1] <= lowestCost:
+                    lowestCount = pair[0]
+                    lowestCost = pair[1]
+                    bestDir = something.index(pair)
+                
+        return directions[bestDir]

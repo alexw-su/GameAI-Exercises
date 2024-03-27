@@ -70,6 +70,7 @@ class GameController(object):
         self.mazedata.obj.denyGhostsAccess(self.ghosts, self.nodes)
         self.pacman.setGhosts(self.ghosts.getGhosts())
         self.pacman.setPellets(self.pellets.pelletList)
+        self.pacman.setPowerPellets(self.pellets.powerpellets)
 
     def startGame_old(self):      
         self.mazedata.loadMaze(self.level)#######
