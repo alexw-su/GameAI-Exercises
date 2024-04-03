@@ -144,23 +144,19 @@ class Pacman(Entity):
         distance = self.safeDistance + 1
         # Get the distance between Pacman and the Nearest Ghost that is not spawning
         self.nearestGhost()
-
         if self.currentGhost != None:
             distance = (self.currentGhost.position - self.position).magnitudeSquared()
         
         # If Ghost further away than the safe distance from Pacman, then seek pellets 
         if all(ghost.mode.current == SPAWN for ghost in self.ghosts) or distance > self.safeDistance:
             self.myState = SEEK_PELLET
-            print(self.myState)
         else:
             # Else, begin fleeing from the nearby ghosts.
             self.myState = FLEE
-            print(self.myState)
 
         # If ghost is close and in freight, then seek it.
         if self.currentGhost.mode.current == FREIGHT and distance <= self.nearbyDistance:
             self.myState = SEEK_GHOST
-            print(self.myState)
 
 
     def updateVariables(self):
