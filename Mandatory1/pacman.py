@@ -7,7 +7,6 @@ from sprites import PacmanSprites
 from behaviourTree import *
 from algorithms import dijkstra_or_a_star
 from random import choice
-from ghosts import GhostGroup
 from random import *
 
 class Pacman(Entity):
@@ -27,11 +26,9 @@ class Pacman(Entity):
         self.nodes = nodes
         self.pellets = []
         self.powerPellets = []
-        self.eatenPellets = []
         self.currentPellet = None
         self.ghosts = []
         self.currentGhost = None
-        self.timer = 0
 
         self.turningAllowed = False
         self.safeDistance = 7000    # Decides when Pacman should be aware of the ghosts
@@ -87,7 +84,6 @@ class Pacman(Entity):
     def eatPellets(self, pelletList):
         for pellet in pelletList:
             if self.collideCheck(pellet):
-                self.eatenPellets.append(pellet)
                 return pellet
         return None    
     
@@ -113,6 +109,9 @@ class Pacman(Entity):
 
         # Update State
         self.updateState()
+
+        # Adjust values based on state
+        self.updateVariables()
         
         # Update Direction
         self.updateDirection(dt)
@@ -145,27 +144,38 @@ class Pacman(Entity):
         distance = self.safeDistance + 1
         # Get the distance between Pacman and the Nearest Ghost that is not spawning
         self.nearestGhost()
+
         if self.currentGhost != None:
             distance = (self.currentGhost.position - self.position).magnitudeSquared()
         
         # If Ghost further away than the safe distance from Pacman, then seek pellets 
         if all(ghost.mode.current == SPAWN for ghost in self.ghosts) or distance > self.safeDistance:
             self.myState = SEEK_PELLET
-            self.turningAllowed = False
-            self.goal = self.getNearestPellet()
-            self.directionMethod = self.pelletDirection
+            print(self.myState)
         else:
             # Else, begin fleeing from the nearby ghosts.
             self.myState = FLEE
-            self.turningAllowed = True
-            self.directionMethod = self.fleeDirection
-        
+            print(self.myState)
+
         # If ghost is close and in freight, then seek it.
         if self.currentGhost.mode.current == FREIGHT and distance <= self.nearbyDistance:
             self.myState = SEEK_GHOST
+            print(self.myState)
+
+
+    def updateVariables(self):
+        if self.myState == SEEK_PELLET:
+            self.turningAllowed = False
+            self.goal = self.getNearestPellet()
+            self.directionMethod = self.pelletDirection
+        
+        if self.myState == FLEE:
+            self.turningAllowed = True
+            self.directionMethod = self.fleeDirection
+        
+        if self.myState == SEEK_GHOST:
             self.turningAllowed = True
             self.goal = self.currentGhost
-            # Use A* to seek this ghost.
             self.directionMethod = self.goalDirectionDij
 
     # Get the nearest ghost that is not spawning
@@ -341,7 +351,7 @@ class Pacman(Entity):
 
         ghosts = self.getNearbyGhost()
         powerPellet = self.getNearestPowerPellet()
-        
+
         for ghost in ghosts:
             distance = 0
             if ghost.mode.current != FREIGHT:
@@ -394,6 +404,10 @@ class Pacman(Entity):
             if pelletDirection == direction:
                 count -= 1
                 cost -= pelletDistance * 2
+
+            if pelletDistance < 500:
+                count = 0
+                cost = 0
 
             something.append((count, cost))
         
